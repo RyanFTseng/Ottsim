@@ -24,6 +24,21 @@ def tint_image(image, tint_color):
     tinted.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
     return tinted
 
+#Grid tile class
+class Tile:
+    def __init__(self, x, y, terrain):
+        self.x = x
+        self.y = y
+        self.terrain = terrain
+        self.organism = None
+    def add_organism(self, organism):
+        self.organism = organism
+    def remove_organism(self):
+        self.organism = None
+    def is_empty(self):
+        return self.organism == None
+    
+
 
 
 #Otter class
@@ -41,6 +56,7 @@ class Otter:
         self.luck  = random.randrange(75)
         #hunger depletion rate (1-100)
         self.endurance = random.randrange(100)
+        self.hunger = 100
 
     def move(self, width, depth):
         dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1), (0,0)])
@@ -82,6 +98,15 @@ def decrease_lifespan(organism_list):
     return temp_list
     
 
+#Initialize Grid
+grid = []
+for i in range(WIDTH):
+    for j in range(DEPTH):
+        grid = [[Tile(x, y, "water") for x in range(WIDTH)] for y in range(DEPTH)]
+
+print(grid)
+
+
 
 clock = pygame.time.Clock()
 running = True
@@ -92,13 +117,16 @@ while running:
             running = False
         #update 1 cycle
         if event.type == UPDATE:
+            #update movements and hunger
+            for o in otter_list:
+                o.hunger-= (1 + 1/o.endurance)
+                if o.hunger<= 0:
+                    o.lifespan = 0
+                o.move(WIDTH, DEPTH)
+
             #update lifespans
             otter_list = decrease_lifespan(otter_list)
             prey_list = decrease_lifespan(prey_list)
-
-            #update movements
-            for o in otter_list:
-                o.move(WIDTH, DEPTH)
         #spawn otter
         if event.type == OTTER_SPAWN:
             print("spawning otter")
@@ -111,7 +139,7 @@ while running:
             print("spawning urchin")
             spawn_x = random.randrange(WIDTH)
             if not any(p.x == spawn_x for p in prey_list):
-                prey_list.append(Prey(spawn_x, DEPTH, 10))
+                prey_list.append(Prey(spawn_x, DEPTH, 100))
 
 
     # Draw
@@ -134,4 +162,4 @@ while running:
     
     
     pygame.display.flip()
-    clock.tick(1000)
+    clock.tick(10)

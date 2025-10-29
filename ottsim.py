@@ -17,6 +17,14 @@ otter_sprite = pygame.image.load("assets/sprites/otter.png")
 #resize sprites
 otter_sprite = pygame.transform.scale(otter_sprite, (CELL_SIZE, CELL_SIZE))
 
+def tint_image(image, tint_color):
+    tinted = image.copy()
+    tint_surface = pygame.Surface(image.get_size(), pygame.SRCALPHA)
+    tint_surface.fill(tint_color + (0,))  # keep alpha channel
+    tinted.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+    return tinted
+
+
 
 #Otter class
 class Otter:
@@ -24,6 +32,7 @@ class Otter:
         self.x, self.y, self.lifespan = x, y, life_span
         #unique color tint
         self.tint = (random.randrange(255), random.randrange(255), random.randrange(255))
+        self.sprite = tint_image(otter_sprite, self.tint)
         #tiles moved/update (1-5)
         self.movespeed = random.randrange(5)
         #number of updates needed to finish eating (1-5)
@@ -32,6 +41,11 @@ class Otter:
         self.luck  = random.randrange(75)
         #hunger depletion rate (1-100)
         self.endurance = random.randrange(100)
+
+    def move(self, width, depth):
+        dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1), (0,0)])
+        self.x = max(0, min(width-1, self.x + dx))
+        self.y = max(0, min(depth-1, self.y + dy))
 
 
 #Prey class
@@ -56,11 +70,20 @@ pygame.time.set_timer(URCHIN_SPAWN, 3000)
 
 #Map update event
 UPDATE = pygame.USEREVENT+3
-pygame.time.set_timer(UPDATE, 1000)
+pygame.time.set_timer(UPDATE, 500)
+
+#lifespan tick function
+def decrease_lifespan(organism_list):
+    temp_list = []
+    for o in organism_list:
+        o.lifespan-=1
+        if o.lifespan > 0:
+            temp_list.append(o)
+    return temp_list
+    
 
 
 clock = pygame.time.Clock()
-
 running = True
 while running:
     #event handling
@@ -69,27 +92,20 @@ while running:
             running = False
         #update 1 cycle
         if event.type == UPDATE:
-            #decrease otter lifespan
-            new_otter_list = []
+            #update lifespans
+            otter_list = decrease_lifespan(otter_list)
+            prey_list = decrease_lifespan(prey_list)
+
+            #update movements
             for o in otter_list:
-                o.lifespan -= 1
-                if o.lifespan > 0:
-                    new_otter_list.append(o)
-            otter_list = new_otter_list
-            #decrease prey lifespan
-            new_prey_list = []
-            for p in prey_list:
-                p.lifespan -= 1
-                if p.lifespan > 0:
-                    new_prey_list.append(p)
-            prey_list = new_prey_list
+                o.move(WIDTH, DEPTH)
         #spawn otter
         if event.type == OTTER_SPAWN:
             print("spawning otter")
             spawn_x = random.randrange(WIDTH)
             spawn_y = random.randrange(5)
             if not any(o.x == spawn_x and o.y == spawn_y for o in otter_list):
-                otter_list.append(Otter(spawn_x,random.randrange(DEPTH), 10))
+                otter_list.append(Otter(spawn_x,random.randrange(DEPTH), 100))
         #spawn urchin
         if event.type == URCHIN_SPAWN:
             print("spawning urchin")
@@ -109,7 +125,7 @@ while running:
 
     #draw otters
     for o in otter_list:
-        screen.blit(otter_sprite, (o.x*CELL_SIZE, o.y*CELL_SIZE))
+        screen.blit(o.sprite, (o.x*CELL_SIZE, o.y*CELL_SIZE))
 
     #draw spawned prey
     for p in prey_list:

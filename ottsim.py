@@ -55,7 +55,7 @@ class Otter:
         #predator escape rate (0-75)
         self.luck  = random.randrange(75)
         #hunger depletion rate (1-100)
-        self.endurance = random.randrange(100)
+        self.endurance = random.randrange(1,100)
         self.hunger = 100
 
     def move(self, width, depth):
@@ -100,11 +100,7 @@ def decrease_lifespan(organism_list):
 
 #Initialize Grid
 grid = []
-for i in range(WIDTH):
-    for j in range(DEPTH):
-        grid = [[Tile(x, y, "water") for x in range(WIDTH)] for y in range(DEPTH)]
-
-print(grid)
+grid = [[Tile(x, y, "water") for y in range(DEPTH)] for x in range(WIDTH)]
 
 
 
@@ -132,8 +128,9 @@ while running:
             print("spawning otter")
             spawn_x = random.randrange(WIDTH)
             spawn_y = random.randrange(5)
-            if not any(o.x == spawn_x and o.y == spawn_y for o in otter_list):
+            if grid[spawn_x][spawn_y].organism == None:
                 otter_list.append(Otter(spawn_x,random.randrange(DEPTH), 100))
+            grid[spawn_x][spawn_y].organism = "otter"
         #spawn urchin
         if event.type == URCHIN_SPAWN:
             print("spawning urchin")
@@ -162,4 +159,3 @@ while running:
     
     
     pygame.display.flip()
-    clock.tick(10)

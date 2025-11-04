@@ -1,12 +1,17 @@
 import random
 import pygame
+import pygame_gui
+
+
+pygame.init()
 
 #Grid Parameters
 DEPTH = 15
 WIDTH = 30
 CELL_SIZE = 50
+GRID_TOGGLE = True
 
-screen = pygame.display.set_mode((WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 1))
+screen = pygame.display.set_mode((WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100))
 
 #load sprites
 otter_sprite = pygame.image.load("assets/sprites/otter.png")
@@ -72,6 +77,12 @@ SIM_SPEED = 3000
 OTTER_TIMING = 5000
 URCHIN_TIMING = 3000
 
+sim_accumulator = 0
+otter_accumulator = 0
+urchin_accumulator = 0
+
+
+
 #otter spawn event
 OTTER_SPAWN = pygame.USEREVENT+1
 pygame.time.set_timer(OTTER_SPAWN, OTTER_TIMING)
@@ -84,6 +95,21 @@ pygame.time.set_timer(URCHIN_SPAWN, URCHIN_TIMING)
 UPDATE = pygame.USEREVENT+3
 pygame.time.set_timer(UPDATE, SIM_SPEED)
 
+
+#Initialize Grid
+grid = []
+grid = [[Tile(x, y, "water") for y in range(DEPTH)] for x in range(WIDTH)]
+for i in range(WIDTH):
+    grid[i][DEPTH-1].terrain = "stone"
+
+#GUI
+manager = pygame_gui.UIManager((WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100))
+
+hello_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((350, DEPTH*CELL_SIZE), (100, 50)),
+                                             text='Grid Lines',
+                                             manager=manager)
+
+
 #lifespan tick function
 def decrease_lifespan(organism_list):
     temp_list = []
@@ -92,51 +118,55 @@ def decrease_lifespan(organism_list):
         if o.lifespan > 0:
             temp_list.append(o)
     return temp_list
-    
-#Initialize Grid
-grid = []
-grid = [[Tile(x, y, "water") for y in range(DEPTH)] for x in range(WIDTH)]
-for i in range(WIDTH):
-    grid[i][DEPTH-1].terrain = "stone"
 
+
+def update_sim(otter_list, prey_list):
+    #update movements and hunger
+    for o in otter_list:
+        o.hunger-= (3 + 3/o.endurance)
+        if o.hunger<= 0:
+            o.lifespan = 0
+        o.move(WIDTH, DEPTH, grid)
+
+    #update lifespans
+    otter_list = decrease_lifespan(otter_list)
+    prey_list = decrease_lifespan(prey_list)
+
+
+def spawn_otter(otter_list, grid):
+    print("spawning otter")
+    spawn_x = random.randrange(WIDTH-1)
+    spawn_y = random.randrange(5)
+    if grid[spawn_x][spawn_y].organism == None:
+        new_otter = Otter(spawn_x, spawn_y, 100.0)
+        otter_list.append(new_otter)
+        grid[spawn_x][spawn_y].organism = new_otter
+
+def spawn_urchin(prey_list):
+    #spawn urchin
+    print("spawning urchin")
+    spawn_x = random.randrange(WIDTH)
+    if not any(p.x == spawn_x for p in prey_list):
+        prey_list.append(Prey(spawn_x, DEPTH-1, 100))
+    
 
 
 clock = pygame.time.Clock()
 running = True
 while running:
+    #timing controls
+    time_delta = clock.tick(60)/1000.0
+    sim_accumulator += time_delta * 1000
+    otter_accumulator += time_delta * 1000
+    urchin_accumulator += time_delta * 1000
+
     #event handling
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        #update 1 cycle
-        if event.type == UPDATE:
-            #update movements and hunger
-            for o in otter_list:
-                o.hunger-= (3 + 3/o.endurance)
-                if o.hunger<= 0:
-                    o.lifespan = 0
-                o.move(WIDTH, DEPTH, grid)
 
-            #update lifespans
-            otter_list = decrease_lifespan(otter_list)
-            prey_list = decrease_lifespan(prey_list)
-        #spawn otter
-        if event.type == OTTER_SPAWN:
-            print("spawning otter")
-            spawn_x = random.randrange(1, WIDTH-1)
-            spawn_y = random.randrange(5)
-            if grid[spawn_x][spawn_y].organism == None:
-                new_otter = Otter(spawn_x, spawn_y, 100.0)
-                otter_list.append(new_otter)
-                grid[spawn_x][spawn_y].organism = new_otter
-        #spawn urchin
-        if event.type == URCHIN_SPAWN:
-            print("spawning urchin")
-            spawn_x = random.randrange(WIDTH)
-            if not any(p.x == spawn_x for p in prey_list):
-                prey_list.append(Prey(spawn_x, DEPTH-1, 100))
         #mouse clicks
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             grid_x = mx // CELL_SIZE
             grid_y = my // CELL_SIZE
@@ -147,6 +177,29 @@ while running:
                     print("Selected otter:", tile.organism.hunger)
                 else:
                     print("empty tile")
+
+        #GUI handling
+        manager.process_events(event)
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if hasattr(event, "ui_element") and event.ui_element == hello_button:
+                GRID_TOGGLE =  not GRID_TOGGLE
+                print("gridlines = " + str(GRID_TOGGLE))
+        
+        
+    if sim_accumulator >= SIM_SPEED:
+        sim_accumulator -= SIM_SPEED
+        update_sim(otter_list, prey_list)
+
+    if otter_accumulator >= OTTER_TIMING:
+        otter_accumulator -= OTTER_TIMING
+        spawn_otter(otter_list, grid)
+
+    if urchin_accumulator >= URCHIN_TIMING:
+        urchin_accumulator -= URCHIN_TIMING
+        spawn_urchin(prey_list)
+
+    
+    manager.update(time_delta)
 
     # Draw
     screen.fill((0, 0, 0))
@@ -166,5 +219,14 @@ while running:
     #draw spawned prey
     for p in prey_list:
         screen.blit(urchin_sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
+
+    if(GRID_TOGGLE):
+        for i in range(DEPTH):
+            pygame.draw.line(screen, (0, 0, 0), (0,i*CELL_SIZE), (WIDTH*CELL_SIZE, i*CELL_SIZE))
+        for i in range(WIDTH):
+            pygame.draw.line(screen, (0, 0, 0), (i*CELL_SIZE, 0), (i*CELL_SIZE, DEPTH*CELL_SIZE))
+
+    #draw GUI
+    manager.draw_ui(screen)
 
     pygame.display.flip()

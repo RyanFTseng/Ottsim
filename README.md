@@ -1,3 +1,4 @@
 # Ottsim
 
-Urchin art from: <a href="https://www.flaticon.com/free-icons/sea-urchin" title="sea urchin icons">Sea urchin icons created by Freepik - Flaticon</a>
+
+<a href="https://www.flaticon.com/free-icons/sea-urchin" title="sea urchin icons">Sea urchin icons created by Freepik - Flaticon</a>

@@ -10,8 +10,11 @@ DEPTH = 15
 WIDTH = 30
 CELL_SIZE = 50
 GRID_TOGGLE = True
+PAUSE_TOGGLE = False
+WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100)
 
-screen = pygame.display.set_mode((WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100))
+
+screen = pygame.display.set_mode(WINDOW_SIZE)
 
 #load sprites
 otter_sprite = pygame.image.load("assets/sprites/otter.png")
@@ -81,21 +84,6 @@ sim_accumulator = 0
 otter_accumulator = 0
 urchin_accumulator = 0
 
-
-
-#otter spawn event
-OTTER_SPAWN = pygame.USEREVENT+1
-pygame.time.set_timer(OTTER_SPAWN, OTTER_TIMING)
-
-#urchin spawn event
-URCHIN_SPAWN = pygame.USEREVENT+2
-pygame.time.set_timer(URCHIN_SPAWN, URCHIN_TIMING)
-
-#Map update event
-UPDATE = pygame.USEREVENT+3
-pygame.time.set_timer(UPDATE, SIM_SPEED)
-
-
 #Initialize Grid
 grid = []
 grid = [[Tile(x, y, "water") for y in range(DEPTH)] for x in range(WIDTH)]
@@ -103,10 +91,14 @@ for i in range(WIDTH):
     grid[i][DEPTH-1].terrain = "stone"
 
 #GUI
-manager = pygame_gui.UIManager((WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100))
+manager = pygame_gui.UIManager(WINDOW_SIZE)
 
-hello_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((350, DEPTH*CELL_SIZE), (100, 50)),
+gridlines_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((0, DEPTH*CELL_SIZE), (100, 50)),
                                              text='Grid Lines',
+                                             manager=manager)
+
+pause_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((101, DEPTH*CELL_SIZE), (100, 50)),
+                                             text='Pause',
                                              manager=manager)
 
 
@@ -156,6 +148,8 @@ running = True
 while running:
     #timing controls
     time_delta = clock.tick(60)/1000.0
+    if PAUSE_TOGGLE:
+        time_delta = 0
     sim_accumulator += time_delta * 1000
     otter_accumulator += time_delta * 1000
     urchin_accumulator += time_delta * 1000
@@ -181,9 +175,16 @@ while running:
         #GUI handling
         manager.process_events(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if hasattr(event, "ui_element") and event.ui_element == hello_button:
-                GRID_TOGGLE =  not GRID_TOGGLE
-                print("gridlines = " + str(GRID_TOGGLE))
+            if hasattr(event, "ui_element"):
+                if event.ui_element == gridlines_button:
+                    GRID_TOGGLE =  not GRID_TOGGLE
+                    print("gridlines = " + str(GRID_TOGGLE))
+                elif  event.ui_element == pause_button:
+                    PAUSE_TOGGLE = not PAUSE_TOGGLE
+                    print("pause = " + str(PAUSE_TOGGLE))
+
+
+            
         
         
     if sim_accumulator >= SIM_SPEED:

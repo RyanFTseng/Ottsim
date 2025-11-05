@@ -10,12 +10,14 @@ font = pygame.font.SysFont(None, 24)
 DEPTH = 15
 WIDTH = 30
 CELL_SIZE = 50
+WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 175)
+
 GRID_TOGGLE = True
 PAUSE_TOGGLE = False
-WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 150)
-
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
+
+
 
 #load sprites
 otter_sprite = pygame.image.load("assets/sprites/otter.png")
@@ -60,26 +62,39 @@ class Otter:
         #hunger depletion rate (1-100)
         self.endurance = random.randrange(1,100)
         self.hunger = 100
+        self.inventory = "empty"
+        self.rect = self.sprite.get_rect(topleft=(self.x * CELL_SIZE, self.y * CELL_SIZE))
 
     def move(self, width, depth, grid):
+        #generate movement direction
         dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1), (0,0)])
-        grid[self.x][self.y].organism = None
-        self.x = max(0, min(width-1, self.x + dx))
-        self.y = max(0, min(depth-1, self.y + dy))
-        grid[self.x][self.y].organism = self
+        newx = max(0, min(width-1, self.x + dx))
+        newy = max(0, min(depth-1, self.y + dy))
+        #check if chosen tile is empty
+        if grid[newx][newy].organism == None:
+            #clear current tile
+            grid[self.x][self.y].organism = None
+            #update position
+            self.x = newx
+            self.y = newy
+            self.rect = self.sprite.get_rect(topleft=(newx * CELL_SIZE, newy * CELL_SIZE))
+            #set new tile's organism to self
+            grid[self.x][self.y].organism = self
 
 #Prey class
 class Prey:
     def __init__(self, x, y, life_span):
         self.x, self.y, self.lifespan = x, y, life_span
+        self.sprite = urchin_sprite
+        self.rect = self.sprite.get_rect(topleft=(self.x*CELL_SIZE, self.y*CELL_SIZE))
 
 #list of organisms
 otter_list = []
 prey_list = [] 
 
 SIM_SPEED = 3000
-OTTER_TIMING = 5000
-URCHIN_TIMING = 3000
+OTTER_TIMING = 10000
+URCHIN_TIMING = 5000
 
 sim_accumulator = 0
 otter_accumulator = 0
@@ -102,12 +117,15 @@ pause_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((101, DEPT
                                              text='Pause',
                                              manager=manager)
 
+selected_organism = None
 
 #lifespan tick function
 def decrease_lifespan(organism_list):
     temp_list = []
     for o in organism_list:
         o.lifespan-=1
+        if o.lifespan <= 0:
+            grid[o.x][o.y].organism = None
         if o.lifespan > 0:
             temp_list.append(o)
     return temp_list
@@ -125,25 +143,32 @@ def update_sim(otter_list, prey_list):
     otter_list = decrease_lifespan(otter_list)
     prey_list = decrease_lifespan(prey_list)
 
+    return otter_list, prey_list
+
 
 def spawn_otter(otter_list, grid):
-    print("spawning otter")
     spawn_x = random.randrange(WIDTH-1)
     spawn_y = random.randrange(5)
+    OTTER_LIFESPAN = 100
     if grid[spawn_x][spawn_y].organism == None:
-        new_otter = Otter(spawn_x, spawn_y, 100.0)
+        print("spawning otter")
+        new_otter = Otter(spawn_x, spawn_y, OTTER_LIFESPAN)
         otter_list.append(new_otter)
         grid[spawn_x][spawn_y].organism = new_otter
+        
 
 def spawn_urchin(prey_list):
     #spawn urchin
-    print("spawning urchin")
     spawn_x = random.randrange(WIDTH)
+    spawn_y = DEPTH-1
+    URCHIN_LIFESPAN = 100
     if not any(p.x == spawn_x for p in prey_list):
-        prey_list.append(Prey(spawn_x, DEPTH-1, 100))
+        print("spawning urchin")
+        new_prey = Prey(spawn_x, spawn_y, URCHIN_LIFESPAN)
+        prey_list.append(new_prey)
+        grid[spawn_x][spawn_y].organism = new_prey
     
 
-selected_organism = None
 
 clock = pygame.time.Clock()
 running = True
@@ -171,7 +196,6 @@ while running:
                 tile = grid[grid_x][grid_y]
                 if not tile.is_empty():
                     selected_organism = tile.organism
-                    print("Selected otter:", tile.organism.hunger)
                 else:
                     print("empty tile")
 
@@ -189,7 +213,7 @@ while running:
         
     if sim_accumulator >= SIM_SPEED:
         sim_accumulator -= SIM_SPEED
-        update_sim(otter_list, prey_list)
+        otter_list, prey_list = update_sim(otter_list, prey_list)
 
     if otter_accumulator >= OTTER_TIMING:
         otter_accumulator -= OTTER_TIMING
@@ -219,7 +243,7 @@ while running:
 
     #draw spawned prey
     for p in prey_list:
-        screen.blit(urchin_sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
+        screen.blit(p.sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
 
     #draw gridlines
     if(GRID_TOGGLE):
@@ -228,20 +252,34 @@ while running:
         for i in range(WIDTH):
             pygame.draw.line(screen, (0, 0, 0), (i*CELL_SIZE, 0), (i*CELL_SIZE, DEPTH*CELL_SIZE))
 
-    if selected_organism:
-        info_y = DEPTH*CELL_SIZE + 1
+
+    #status rendering
+    info_y = DEPTH*CELL_SIZE + 1
+    if selected_organism.__class__ == Otter:
         info = [
             f"Otter ({selected_organism.x}, {selected_organism.y})",
             f"Damage: {selected_organism.damage}",
             f"Lifespan: {selected_organism.lifespan}",
-            f"Hunger: {selected_organism.hunger}",
+            f"Hunger: {round(selected_organism.hunger,4)}",
             f"Luck: {selected_organism.luck}",
-            f"Endurance: {selected_organism.endurance}"
+            f"Endurance: {selected_organism.endurance}",
+            f"Inventory: {selected_organism.inventory}"
         ]
-        for i, line in enumerate(info):
-            text = font.render(line, True, (255,255,255))
-            screen.blit(text, (300, info_y + i*25))
+    elif selected_organism.__class__ == Prey:
+        info = [
+            f"Urchin ({selected_organism.x}, {selected_organism.y})",
+            f"Lifespan: {selected_organism.lifespan}"
+        ]
+    if selected_organism == None or selected_organism.lifespan<=0:
+        info = ["No selection"]
+    for i, line in enumerate(info):
+        text = font.render(line, True, (255,255,255))
+        screen.blit(text, (300, info_y + i*25))
 
+    #selection outline
+    if selected_organism and selected_organism.lifespan>0:
+        pygame.draw.rect(screen, (255, 255, 0), selected_organism.rect, 2)
+    
     #draw GUI 
     manager.draw_ui(screen)
 

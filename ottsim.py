@@ -4,6 +4,7 @@ import pygame_gui
 
 
 pygame.init()
+font = pygame.font.SysFont(None, 24) 
 
 #Grid Parameters
 DEPTH = 15
@@ -11,7 +12,7 @@ WIDTH = 30
 CELL_SIZE = 50
 GRID_TOGGLE = True
 PAUSE_TOGGLE = False
-WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 100)
+WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 150)
 
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -53,7 +54,7 @@ class Otter:
         self.tint = (random.randrange(255), random.randrange(255), random.randrange(255))
         self.sprite = tint_image(otter_sprite, self.tint)
         #number of updates needed to finish eating (1-5)
-        self.damage = random.randrange(5)
+        self.damage = random.randrange(1,5)
         #predator escape rate (0-75)
         self.luck  = random.randrange(75)
         #hunger depletion rate (1-100)
@@ -142,6 +143,7 @@ def spawn_urchin(prey_list):
         prey_list.append(Prey(spawn_x, DEPTH-1, 100))
     
 
+selected_organism = None
 
 clock = pygame.time.Clock()
 running = True
@@ -168,6 +170,7 @@ while running:
             if grid_y < DEPTH:
                 tile = grid[grid_x][grid_y]
                 if not tile.is_empty():
+                    selected_organism = tile.organism
                     print("Selected otter:", tile.organism.hunger)
                 else:
                     print("empty tile")
@@ -182,10 +185,7 @@ while running:
                 elif  event.ui_element == pause_button:
                     PAUSE_TOGGLE = not PAUSE_TOGGLE
                     print("pause = " + str(PAUSE_TOGGLE))
-
-
             
-        
         
     if sim_accumulator >= SIM_SPEED:
         sim_accumulator -= SIM_SPEED
@@ -221,13 +221,28 @@ while running:
     for p in prey_list:
         screen.blit(urchin_sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
 
+    #draw gridlines
     if(GRID_TOGGLE):
         for i in range(DEPTH):
             pygame.draw.line(screen, (0, 0, 0), (0,i*CELL_SIZE), (WIDTH*CELL_SIZE, i*CELL_SIZE))
         for i in range(WIDTH):
             pygame.draw.line(screen, (0, 0, 0), (i*CELL_SIZE, 0), (i*CELL_SIZE, DEPTH*CELL_SIZE))
 
-    #draw GUI
+    if selected_organism:
+        info_y = DEPTH*CELL_SIZE + 1
+        info = [
+            f"Otter ({selected_organism.x}, {selected_organism.y})",
+            f"Damage: {selected_organism.damage}",
+            f"Lifespan: {selected_organism.lifespan}",
+            f"Hunger: {selected_organism.hunger}",
+            f"Luck: {selected_organism.luck}",
+            f"Endurance: {selected_organism.endurance}"
+        ]
+        for i, line in enumerate(info):
+            text = font.render(line, True, (255,255,255))
+            screen.blit(text, (300, info_y + i*25))
+
+    #draw GUI 
     manager.draw_ui(screen)
 
     pygame.display.flip()

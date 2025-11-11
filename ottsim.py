@@ -17,9 +17,9 @@ PAUSE_TOGGLE = False
 
 
 #Timing controls
-EATING_TIME = 20
+EATING_TIME = 10
 
-SIM_SPEED = 3000
+SIM_SPEED = 2000
 OTTER_TIMING = 10000
 URCHIN_TIMING = 5000
 
@@ -80,14 +80,26 @@ class Otter:
         self.luck  = random.randrange(75)
         #hunger depletion rate (1-100)
         self.endurance = random.randrange(1,100)
-        self.hunger = 100
-        self.inventory = "prey"
+        self.hunger = 40
+        self.inventory = "none"
         self.rect = self.sprite.get_rect(topleft=(self.x * CELL_SIZE, self.y * CELL_SIZE))
         self.state = "move"
 
     def move(self, width, depth, grid):
         #generate movement direction
-        dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1), (0,0)])
+        #move up if holding prey
+        if(self.inventory == "prey"):
+            dx, dy = random.choice([(1,-1), (-1,-1), (0,-1)])
+        #hunt mode
+        elif(self.hunger <= 40 and self.inventory == "none"):
+            if(self.y == depth-1):
+                dx, dy = random.choice([(1,0), (-1,0)])
+            else:
+                dx, dy = random.choice([(1,1), (-1,1), (0,1)])
+        #wander mode
+        else:
+            dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
+
         newx = max(0, min(width-1, self.x + dx))
         newy = max(0, min(depth-1, self.y + dy))
         #harvest if chosen tile has prey
@@ -105,22 +117,26 @@ class Otter:
             self.rect = self.sprite.get_rect(topleft=(newx * CELL_SIZE, newy * CELL_SIZE))
             #set new tile's organism to self
             grid[self.x][self.y].organism = self
+    
+    def eat(self):
+        self.eating_time -= self.damage
+        if self.eating_time == 0:
+            self.state = "move"
+            self.inventory = "none"
+            self.hunger +=50
+            self.eating_time == EATING_TIME
 
     def update(self):
         #state logic
-        if(self.inventory == "prey" and self.y == 0):
+        if self.inventory == "prey" and self.y == 0:
             self.state = "eating"
-        if(self.state == "eating"):
-            self.eating_time -= self.damage
-            if self.eating_time == 0:
-                self.state = "move"
-                self.inventory = "empty"
-                self.hunger +=20
-                self.eating_time == EATING_TIME
+
+        #state actions
+        if self.state == "eating":
+            self.eat()
         else:
             self.move(WIDTH, DEPTH, grid)
         
-
 
 #Prey class
 class Prey:
@@ -132,8 +148,6 @@ class Prey:
 #list of organisms
 otter_list = []
 prey_list = [] 
-
-
 
 
 #GUI
@@ -164,7 +178,7 @@ def decrease_lifespan(organism_list):
 def update_sim(otter_list, prey_list):
     #update movements and hunger
     for o in otter_list:
-        o.hunger-= (3 + 3/o.endurance)
+        o.hunger-= (1 + 3/o.endurance)
         if o.hunger<= 0:
             o.lifespan = 0
         o.update()
@@ -181,7 +195,6 @@ def spawn_otter(otter_list, grid):
     spawn_y = random.randrange(5)
     OTTER_LIFESPAN = 100
     if grid[spawn_x][spawn_y].organism == None:
-        print("spawning otter")
         new_otter = Otter(spawn_x, spawn_y, OTTER_LIFESPAN)
         otter_list.append(new_otter)
         grid[spawn_x][spawn_y].organism = new_otter
@@ -193,7 +206,6 @@ def spawn_urchin(prey_list):
     spawn_y = DEPTH-1
     URCHIN_LIFESPAN = 100
     if not any(p.x == spawn_x for p in prey_list):
-        print("spawning urchin")
         new_prey = Prey(spawn_x, spawn_y, URCHIN_LIFESPAN)
         prey_list.append(new_prey)
         grid[spawn_x][spawn_y].organism = new_prey
@@ -287,13 +299,15 @@ while running:
     info_y = DEPTH*CELL_SIZE + 1
     if selected_organism.__class__ == Otter:
         info = [
-            f"Otter ({selected_organism.x}, {selected_organism.y})",
-            f"Damage: {selected_organism.damage}",
+            f"Otter ({selected_organism.x}, {selected_organism.y})" 
+            f"Damage: {selected_organism.damage}"
             f"Lifespan: {selected_organism.lifespan}",
             f"Hunger: {round(selected_organism.hunger,4)}",
             f"Luck: {selected_organism.luck}",
             f"Endurance: {selected_organism.endurance}",
-            f"Inventory: {selected_organism.inventory}"
+            f"Inventory: {selected_organism.inventory}",
+            f"Eating Time: {selected_organism.eating_time}",
+            f"State: {selected_organism.state}"
         ]
     elif selected_organism.__class__ == Prey:
         info = [

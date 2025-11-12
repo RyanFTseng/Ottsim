@@ -54,10 +54,12 @@ for i in range(WIDTH):
 
 #load sprites
 otter_sprite = pygame.image.load("assets/sprites/otter.png")
+otter_holding_sprite = pygame.image.load("assets/sprites/otter_holding.png")
 urchin_sprite = pygame.image.load("assets/sprites/sea-urchin.png")
 
 #resize sprites
 otter_sprite = pygame.transform.scale(otter_sprite, (CELL_SIZE, CELL_SIZE))
+otter_holding_sprite = pygame.transform.scale(otter_holding_sprite, (CELL_SIZE, CELL_SIZE))
 urchin_sprite = pygame.transform.scale(urchin_sprite, (CELL_SIZE, CELL_SIZE))
 
 def tint_image(image, tint_color):
@@ -71,9 +73,6 @@ def tint_image(image, tint_color):
 class Otter:
     def __init__(self, x, y, life_span):
         self.x, self.y, self.lifespan = x, y, life_span
-        #unique color tint
-        self.tint = (random.randrange(255), random.randrange(255), random.randrange(255))
-        self.sprite = tint_image(otter_sprite, self.tint)
         #number of updates needed to finish eating (1-5)
         self.eating_time = EATING_TIME
         self.damage = random.randrange(1,5)
@@ -84,6 +83,9 @@ class Otter:
         self.hunger = 40
         #memory for holding prey
         self.inventory = "none"
+        #unique color tint
+        self.tint = (random.randrange(50), random.randrange(50), random.randrange(50))
+        self.sprite = tint_image(otter_sprite, self.tint)
         #area for drawing selection box
         self.rect = self.sprite.get_rect(topleft=(self.x * CELL_SIZE, self.y * CELL_SIZE))
         self.state = "move"
@@ -127,6 +129,7 @@ class Otter:
         #harvest if chosen tile has prey
         if grid[newx][newy].organism.__class__ == Prey:
             self.inventory = "prey"
+            self.sprite = tint_image(otter_holding_sprite, self.tint)
             grid[newx][newy].organism.lifespan = 0
             grid[newx][newy].organism = None
         #check if chosen tile is empty
@@ -147,6 +150,7 @@ class Otter:
             self.inventory = "none"
             self.hunger +=50
             self.eating_time = EATING_TIME
+            self.sprite = tint_image(otter_sprite, self.tint)
 
     def update(self):
         #state logic

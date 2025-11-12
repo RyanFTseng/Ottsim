@@ -14,12 +14,13 @@ WINDOW_SIZE = (WIDTH*CELL_SIZE + 1, DEPTH*CELL_SIZE + 175)
 
 GRID_TOGGLE = True
 PAUSE_TOGGLE = False
+VISION_TOGGLE = False
 
 
 #Timing controls
 EATING_TIME = 10
 
-SIM_SPEED = 2000
+SIM_SPEED = 1000
 OTTER_TIMING = 10000
 URCHIN_TIMING = 5000
 
@@ -81,25 +82,46 @@ class Otter:
         #hunger depletion rate (1-100)
         self.endurance = random.randrange(1,100)
         self.hunger = 40
+        #memory for holding prey
         self.inventory = "none"
+        #area for drawing selection box
         self.rect = self.sprite.get_rect(topleft=(self.x * CELL_SIZE, self.y * CELL_SIZE))
         self.state = "move"
+        #vision parameters
+        self.direction = pygame.Vector2(1, 0)
+        self.vision_range = random.randrange(1, 4)
 
-    def move(self, width, depth, grid):
+    def get_visible_tiles(self, grid):
+        visible = []
+        for i in range(1, self.vision_range + 1):
+            tx = int(self.x + self.direction.x * i)
+            ty = int(self.y + self.direction.y * i)
+            if 0 <= tx < len(grid) and 0 <= ty < len(grid[0]):
+                visible.append(grid[tx][ty])
+
+        return visible
+
+    def set_direction(self):
         #generate movement direction
         #move up if holding prey
         if(self.inventory == "prey"):
             dx, dy = random.choice([(1,-1), (-1,-1), (0,-1)])
         #hunt mode
         elif(self.hunger <= 40 and self.inventory == "none"):
-            if(self.y == depth-1):
+            if(grid[self.x][self.y].terrain == "stone"):
                 dx, dy = random.choice([(1,0), (-1,0)])
             else:
                 dx, dy = random.choice([(1,1), (-1,1), (0,1)])
         #wander mode
         else:
             dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
+        return dx, dy
 
+
+    def move(self, width, depth, grid):
+        
+        dx, dy = self.set_direction()
+        
         newx = max(0, min(width-1, self.x + dx))
         newy = max(0, min(depth-1, self.y + dy))
         #harvest if chosen tile has prey
@@ -120,11 +142,11 @@ class Otter:
     
     def eat(self):
         self.eating_time -= self.damage
-        if self.eating_time == 0:
+        if self.eating_time <= 0:
             self.state = "move"
             self.inventory = "none"
             self.hunger +=50
-            self.eating_time == EATING_TIME
+            self.eating_time = EATING_TIME
 
     def update(self):
         #state logic
@@ -161,6 +183,10 @@ pause_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((101, DEPT
                                              text='Pause',
                                              manager=manager)
 
+vision_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((201, DEPTH*CELL_SIZE), (100, 50)),
+                                             text='Vision',
+                                             manager=manager)
+
 selected_organism = None
 
 #lifespan tick function
@@ -178,7 +204,8 @@ def decrease_lifespan(organism_list):
 def update_sim(otter_list, prey_list):
     #update movements and hunger
     for o in otter_list:
-        o.hunger-= (1 + 3/o.endurance)
+        if o.state != "eating":
+            o.hunger-= (0.5 + 3/o.endurance)
         if o.hunger<= 0:
             o.lifespan = 0
         o.update()
@@ -251,6 +278,9 @@ while running:
                 elif  event.ui_element == pause_button:
                     PAUSE_TOGGLE = not PAUSE_TOGGLE
                     print("pause = " + str(PAUSE_TOGGLE))
+                elif  event.ui_element == vision_button:
+                    VISION_TOGGLE = not VISION_TOGGLE
+                    print("pause = " + str(VISION_TOGGLE))
             
         
     if sim_accumulator >= SIM_SPEED:
@@ -270,7 +300,7 @@ while running:
 
     # Draw
     screen.fill((0, 0, 0))
-    #draw grid
+    #draw terrain
     for y in range(DEPTH):
         for x in range(WIDTH):
             if grid[x][y].terrain == "water":
@@ -278,14 +308,6 @@ while running:
             elif grid[x][y].terrain == "stone":
                 color = (107, 107, 107)
             pygame.draw.rect(screen, color, (x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE), width = 0)
-
-    #draw otters
-    for o in otter_list:
-        screen.blit(o.sprite, (o.x*CELL_SIZE, o.y*CELL_SIZE))
-
-    #draw spawned prey
-    for p in prey_list:
-        screen.blit(p.sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
 
     #draw gridlines
     if(GRID_TOGGLE):
@@ -295,19 +317,37 @@ while running:
             pygame.draw.line(screen, (0, 0, 0), (i*CELL_SIZE, 0), (i*CELL_SIZE, DEPTH*CELL_SIZE))
 
 
+    #draw otters
+    for o in otter_list:
+        screen.blit(o.sprite, (o.x*CELL_SIZE, o.y*CELL_SIZE))
+        #draw otter vision range
+        if(VISION_TOGGLE):
+            for tile in o.get_visible_tiles(grid):
+                pygame.draw.rect(screen, (255, 9, 2), 
+                pygame.Rect(tile.x * CELL_SIZE, tile.y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
+
+    
+
+    #draw spawned prey
+    for p in prey_list:
+        screen.blit(p.sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
+
+
+
     #status rendering
     info_y = DEPTH*CELL_SIZE + 1
     if selected_organism.__class__ == Otter:
         info = [
             f"Otter ({selected_organism.x}, {selected_organism.y})" 
-            f"Damage: {selected_organism.damage}"
-            f"Lifespan: {selected_organism.lifespan}",
-            f"Hunger: {round(selected_organism.hunger,4)}",
-            f"Luck: {selected_organism.luck}",
-            f"Endurance: {selected_organism.endurance}",
-            f"Inventory: {selected_organism.inventory}",
-            f"Eating Time: {selected_organism.eating_time}",
+            f"   Damage: {selected_organism.damage}",
+            f"Lifespan: {selected_organism.lifespan}"
+            f"   Hunger: {round(selected_organism.hunger,4)}",
+            f"Luck: {selected_organism.luck}"
+            f"   Endurance: {selected_organism.endurance}",
+            f"Inventory: {selected_organism.inventory}"
+            f"   Eating Time: {selected_organism.eating_time}",
             f"State: {selected_organism.state}"
+            f"   Vision range: {selected_organism.vision_range}"
         ]
     elif selected_organism.__class__ == Prey:
         info = [

@@ -123,6 +123,7 @@ class Otter:
     def move(self, width, depth, grid):
         
         dx, dy = self.set_direction()
+        self.direction = pygame.Vector2(dx, dy)
         
         newx = max(0, min(width-1, self.x + dx))
         newy = max(0, min(depth-1, self.y + dy))
@@ -327,7 +328,7 @@ while running:
         #draw otter vision range
         if(VISION_TOGGLE):
             for tile in o.get_visible_tiles(grid):
-                pygame.draw.rect(screen, (255, 9, 2), 
+                pygame.draw.rect(screen, o.tint, 
                 pygame.Rect(tile.x * CELL_SIZE, tile.y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
 
     

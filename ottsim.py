@@ -110,10 +110,16 @@ class Otter:
             dx, dy = random.choice([(1,-1), (-1,-1), (0,-1)])
         #hunt mode
         elif(self.hunger <= 40 and self.inventory == "none"):
+            #wander sea floor for prey
             if(grid[self.x][self.y].terrain == "stone"):
                 dx, dy = random.choice([(1,0), (-1,0)])
             else:
                 dx, dy = random.choice([(1,1), (-1,1), (0,1)])
+            #move towards prey if spotted
+            for tile in self.get_visible_tiles(grid):
+                if tile.organism.__class__ == Prey:
+                    dx, dy = self.direction.x, self.direction.y
+                    
         #wander mode
         else:
             dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
@@ -125,8 +131,8 @@ class Otter:
         dx, dy = self.set_direction()
         self.direction = pygame.Vector2(dx, dy)
         
-        newx = max(0, min(width-1, self.x + dx))
-        newy = max(0, min(depth-1, self.y + dy))
+        newx = int(max(0, min(width-1, self.x + dx)))
+        newy = int(max(0, min(depth-1, self.y + dy)))
         #harvest if chosen tile has prey
         if grid[newx][newy].organism.__class__ == Prey:
             self.inventory = "prey"
@@ -328,8 +334,7 @@ while running:
         #draw otter vision range
         if(VISION_TOGGLE):
             for tile in o.get_visible_tiles(grid):
-                pygame.draw.rect(screen, o.tint, 
-                pygame.Rect(tile.x * CELL_SIZE, tile.y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
+                pygame.draw.rect(screen, (255, 9, 2), pygame.Rect(tile.x * CELL_SIZE, tile.y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
 
     
 

@@ -51,6 +51,14 @@ grid = [[Tile(x, y, "water") for y in range(DEPTH)] for x in range(WIDTH)]
 for i in range(WIDTH):
     grid[i][DEPTH-1].terrain = "stone"
 
+stone_list = []
+for x in range(WIDTH):
+    for y in range(DEPTH):
+        if grid[x][y].terrain == "stone":
+            stone_list.append((x, y))
+
+
+
 
 #load sprites
 otter_sprite = pygame.image.load("assets/sprites/otter.png")
@@ -100,6 +108,8 @@ class Otter:
             ty = int(self.y + self.direction.y * i)
             if 0 <= tx < len(grid) and 0 <= ty < len(grid[0]):
                 visible.append(grid[tx][ty])
+                if grid[tx][ty].organism != None or grid[tx][ty].terrain == "stone":
+                    break
 
         return visible
 
@@ -127,7 +137,6 @@ class Otter:
 
 
     def move(self, width, depth, grid):
-        
         dx, dy = self.set_direction()
         self.direction = pygame.Vector2(dx, dy)
         
@@ -240,10 +249,12 @@ def spawn_otter(otter_list, grid):
 
 def spawn_urchin(prey_list):
     #spawn urchin
-    spawn_x = random.randrange(WIDTH)
-    spawn_y = DEPTH-1
+    spawn_index = random.randrange(len(stone_list))
+    spawn_loc = stone_list[spawn_index]
+    spawn_x = spawn_loc[0]
+    spawn_y = spawn_loc[1]
     URCHIN_LIFESPAN = 100
-    if not any(p.x == spawn_x for p in prey_list):
+    if not any(p.x == spawn_x and p.y == spawn_y for p in prey_list):
         new_prey = Prey(spawn_x, spawn_y, URCHIN_LIFESPAN)
         prey_list.append(new_prey)
         grid[spawn_x][spawn_y].organism = new_prey
@@ -341,7 +352,6 @@ while running:
     #draw spawned prey
     for p in prey_list:
         screen.blit(p.sprite, (p.x*CELL_SIZE, p.y*CELL_SIZE))
-
 
 
     #status rendering
